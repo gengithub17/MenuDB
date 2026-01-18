@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}編集モード{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <!-- Add Button (PC) -->
+  <div class="d-none d-md-block mb-3">
+    <a href="{{ url_for('main.dish_new') }}" class="btn btn-add">
+      <i class="bi bi-plus-lg"></i> 料理を追加
+    </a>
+  </div>
+
+  <!-- Search Section -->
+  <form id="searchForm" action="{{ url_for('main.search_dishes') }}" method="GET">
+    <input type="hidden" name="view_mode" value="edit">
+    <div class="search-section">
+      <!-- Autocomplete Input -->
+      <div class="mb-3 position-relative">
+        <label class="form-label">原材料を入力</label>
+        <input type="text" class="form-control" id="ingredientInput" placeholder="原材料名を入力...">
+        <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+      </div>
+
+      <!-- Selected Tags -->
+      <div class="mb-3">
+        <label class="form-label">選択中の原材料</label>
+        <div class="selected-tags" id="selectedIngredients">
+          {% for ing_id in selected_ingredient_ids|default([]) %}
+            {% set ingredient = categories|map(attribute='ingredients')|sum(start=[])|selectattr('id', 'equalto', ing_id)|first %}
+            {% if ingredient %}
+            <span class="selected-tag" data-id="{{ ingredient.id }}">
+              {{ ingredient.name }}
+              <span class="remove-tag" onclick="removeIngredient({{ ingredient.id }})"><i class="bi bi-x"></i></span>
+            </span>
+            {% endif %}
+          {% endfor %}
+          <span class="text-muted small" id="noSelectionText" {% if selected_ingredient_ids|default([])|length > 0 %}style="display:none"{% endif %}>
+            タグを選択してください
+          </span>
+        </div>
+      </div>
+
+      <!-- Category Accordion -->
+      <div class="mb-3">
+        <label class="form-label">原材料分類から選択</label>
+        <div class="accordion category-accordion" id="categoryAccordion">
+          {% for category in categories %}
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#category{{ category.id }}">
+                <i class="bi bi-tag me-2"></i> {{ category.name }}
+              </button>
+            </h2>
+            <div id="category{{ category.id }}" class="accordion-collapse collapse" data-bs-parent="#categoryAccordion">
+              <div class="accordion-body">
+                {% for ingredient in category.ingredients %}
+                <span class="tag-pill tag-pill-ingredient {% if ingredient.id in selected_ingredient_ids|default([]) %}selected{% endif %}"
+                      data-id="{{ ingredient.id }}" onclick="toggleIngredient({{ ingredient.id }}, '{{ ingredient.name }}')">
+                  {{ ingredient.name }}
+                </span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Genre Selection -->
+      <div class="mb-3">
+        <label class="form-label">料理ジャンルで絞り込み</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for genre in genres %}
+          <span class="tag-pill tag-pill-genre {% if genre.id in selected_genre_ids|default([]) %}selected{% endif %}"
+                data-id="{{ genre.id }}" onclick="toggleGenre({{ genre.id }})">
+            {{ genre.name }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Search Mode Toggle -->
+      <div class="mb-3 d-flex align-items-center justify-content-between">
+        <div class="search-mode-toggle">
+          <span class="me-2">検索モード:</span>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="mode" id="modeFuzzy" value="fuzzy" {% if search_mode|default('fuzzy') == 'fuzzy' %}checked{% endif %}>
+            <label class="form-check-label" for="modeFuzzy">部分一致検索</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="mode" id="modeExact" value="exact" {% if search_mode|default('fuzzy') == 'exact' %}checked{% endif %}>
+            <label class="form-check-label" for="modeExact">完全一致</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination Settings -->
+      <div class="mb-3 d-flex align-items-center">
+        <label class="me-2">表示件数:</label>
+        <select class="form-select form-select-sm" style="width: auto;" name="per_page" id="perPage">
+          <option value="5" {% if dishes and dishes.per_page == 5 %}selected{% endif %}>5件</option>
+          <option value="10" {% if not dishes or dishes.per_page == 10 %}selected{% endif %}>10件</option>
+          <option value="20" {% if dishes and dishes.per_page == 20 %}selected{% endif %}>20件</option>
+          <option value="50" {% if dishes and dishes.per_page == 50 %}selected{% endif %}>50件</option>
+        </select>
+      </div>
+
+      <!-- Hidden inputs for selected IDs -->
+      <input type="hidden" name="ingredient_ids" id="ingredientIdsInput" value="{{ selected_ingredient_ids|default([])|join(',') }}">
+      <input type="hidden" name="genre_ids" id="genreIdsInput" value="{{ selected_genre_ids|default([])|join(',') }}">
+
+      <!-- Search Button -->
+      <button type="submit" class="btn btn-add w-100">
+        <i class="bi bi-search"></i> 検索
+      </button>
+    </div>
+  </form>
+
+  <!-- Dish List / Search Results -->
+  <div class="mt-4">
+    {% if dishes %}
+    <h5 class="mb-3">{% if selected_ingredient_ids or selected_genre_ids %}検索結果{% else %}料理一覧{% endif %} ({{ dishes.total }}件)</h5>
+
+    {% if dishes.items %}
+      {% for dish in dishes.items %}
+      <div class="dish-card">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="dish-card-clickable flex-grow-1" onclick="location.href='{{ url_for('main.dish_edit', id=dish.id, referrer=request.url) }}'">
+            <div class="dish-name">{{ dish.name }}</div>
+            <div class="dish-genres mt-2">
+              {% for genre in dish.genres %}
+              <span class="badge bg-warning text-dark">{{ genre.name }}</span>
+              {% endfor %}
+            </div>
+            <div class="dish-ingredients mt-2">
+              <i class="bi bi-basket"></i>
+              {{ dish.ingredients|map(attribute='name')|join('、') }}
+            </div>
+          </div>
+          <div class="d-flex flex-column align-items-end">
+            <div class="dish-difficulty mb-2">
+              {% for i in range(5) %}
+                {% if i < dish.difficulty %}
+                  <i class="bi bi-star-fill"></i>
+                {% else %}
+                  <i class="bi bi-star"></i>
+                {% endif %}
+              {% endfor %}
+            </div>
+            <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal"
+                    data-dish-id="{{ dish.id }}" data-dish-name="{{ dish.name }}">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Pagination -->
+      {% if dishes.pages > 1 %}
+      <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+          <li class="page-item {% if not dishes.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="#" onclick="goToPage({{ dishes.prev_num }})">前へ</a>
+          </li>
+          {% for p in dishes.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+              <li class="page-item {% if p == dishes.page %}active{% endif %}">
+                <a class="page-link" href="#" onclick="goToPage({{ p }})">{{ p }}</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+          {% endfor %}
+          <li class="page-item {% if not dishes.has_next %}disabled{% endif %}">
+            <a class="page-link" href="#" onclick="goToPage({{ dishes.next_num }})">次へ</a>
+          </li>
+        </ul>
+      </nav>
+      {% endif %}
+    {% else %}
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        {% if selected_ingredient_ids or selected_genre_ids %}
+          検索条件に一致する料理が見つかりませんでした。
+        {% else %}
+          料理が登録されていません。「料理を追加」ボタンから登録してください。
+        {% endif %}
+      </div>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Floating Add Button (Mobile) -->
+<button class="fab-add d-md-none" onclick="location.href='{{ url_for('main.dish_new') }}'">
+  <i class="bi bi-plus-lg"></i>
+</button>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">削除の確認</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-confirm-text">「<span id="deleteDishName"></span>」を削除しますか？</p>
+        <p class="text-muted small">この操作は取り消せません。</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <form id="deleteForm" method="POST" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger">削除する</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Selected ingredients and genres
+  let selectedIngredients = new Map();
+  let selectedGenres = new Set();
+
+  // Initialize from existing selections
+  {% for ing_id in selected_ingredient_ids|default([]) %}
+    {% set ingredient = categories|map(attribute='ingredients')|sum(start=[])|selectattr('id', 'equalto', ing_id)|first %}
+    {% if ingredient %}
+    selectedIngredients.set({{ ingredient.id }}, '{{ ingredient.name }}');
+    {% endif %}
+  {% endfor %}
+
+  {% for genre_id in selected_genre_ids|default([]) %}
+  selectedGenres.add({{ genre_id }});
+  {% endfor %}
+
+  // Autocomplete
+  const ingredientInput = document.getElementById('ingredientInput');
+  const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+
+  ingredientInput.addEventListener('input', async function() {
+    const q = this.value.trim();
+    if (q.length < 1) {
+      autocompleteDropdown.style.display = 'none';
+      return;
+    }
+
+    const response = await fetch(`{{ url_for('main.ingredient_search') }}?q=${encodeURIComponent(q)}`);
+    const ingredients = await response.json();
+
+    if (ingredients.length === 0) {
+      autocompleteDropdown.style.display = 'none';
+      return;
+    }
+
+    autocompleteDropdown.innerHTML = ingredients
+      .filter(i => !selectedIngredients.has(i.id))
+      .map(i => `<div class="autocomplete-item" onclick="selectFromAutocomplete(${i.id}, '${i.name}')">${i.name}</div>`)
+      .join('');
+    autocompleteDropdown.style.display = 'block';
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.position-relative')) {
+      autocompleteDropdown.style.display = 'none';
+    }
+  });
+
+  function selectFromAutocomplete(id, name) {
+    if (!selectedIngredients.has(id)) {
+      selectedIngredients.set(id, name);
+      updateSelectedIngredients();
+      updateIngredientPills();
+    }
+    ingredientInput.value = '';
+    autocompleteDropdown.style.display = 'none';
+  }
+
+  function toggleIngredient(id, name) {
+    if (selectedIngredients.has(id)) {
+      selectedIngredients.delete(id);
+    } else {
+      selectedIngredients.set(id, name);
+    }
+    updateSelectedIngredients();
+    updateIngredientPills();
+  }
+
+  function removeIngredient(id) {
+    selectedIngredients.delete(id);
+    updateSelectedIngredients();
+    updateIngredientPills();
+  }
+
+  function updateSelectedIngredients() {
+    const container = document.getElementById('selectedIngredients');
+    const noSelectionText = document.getElementById('noSelectionText');
+
+    container.querySelectorAll('.selected-tag').forEach(el => el.remove());
+
+    if (selectedIngredients.size === 0) {
+      noSelectionText.style.display = 'inline';
+    } else {
+      noSelectionText.style.display = 'none';
+      selectedIngredients.forEach((name, id) => {
+        const tag = document.createElement('span');
+        tag.className = 'selected-tag';
+        tag.dataset.id = id;
+        tag.innerHTML = `${name}<span class="remove-tag" onclick="removeIngredient(${id})"><i class="bi bi-x"></i></span>`;
+        container.insertBefore(tag, noSelectionText);
+      });
+    }
+
+    document.getElementById('ingredientIdsInput').value = Array.from(selectedIngredients.keys()).join(',');
+  }
+
+  function updateIngredientPills() {
+    document.querySelectorAll('.tag-pill-ingredient').forEach(pill => {
+      const id = parseInt(pill.dataset.id);
+      if (selectedIngredients.has(id)) {
+        pill.classList.add('selected');
+      } else {
+        pill.classList.remove('selected');
+      }
+    });
+  }
+
+  function toggleGenre(id) {
+    const pill = document.querySelector(`.tag-pill-genre[data-id="${id}"]`);
+    if (selectedGenres.has(id)) {
+      selectedGenres.delete(id);
+      pill.classList.remove('selected');
+    } else {
+      selectedGenres.add(id);
+      pill.classList.add('selected');
+    }
+    document.getElementById('genreIdsInput').value = Array.from(selectedGenres).join(',');
+  }
+
+  function goToPage(page) {
+    const form = document.getElementById('searchForm');
+    const pageInput = document.createElement('input');
+    pageInput.type = 'hidden';
+    pageInput.name = 'page';
+    pageInput.value = page;
+    form.appendChild(pageInput);
+    form.submit();
+  }
+
+  // Delete modal
+  const deleteModal = document.getElementById('deleteModal');
+  deleteModal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    const dishId = button.getAttribute('data-dish-id');
+    const dishName = button.getAttribute('data-dish-name');
+
+    document.getElementById('deleteDishName').textContent = dishName;
+    document.getElementById('deleteForm').action = `/dish/${dishId}/delete`;
+  });
+</script>
+{% endblock %}

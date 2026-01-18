@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_new %}料理を追加{% else %}料理を編集{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <!-- Page Title -->
+  <div class="d-flex align-items-center mb-4">
+    <button type="button" class="btn btn-outline-secondary me-3" onclick="history.back()">
+      <i class="bi bi-arrow-left"></i>
+    </button>
+    <h4 class="mb-0">{% if is_new %}料理を追加{% else %}料理を編集{% endif %}</h4>
+  </div>
+
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    {{ form.referrer }}
+
+    <!-- Basic Info -->
+    <div class="form-section">
+      <div class="form-section-title">基本情報</div>
+
+      <!-- Dish Name -->
+      <div class="mb-3">
+        <label for="name" class="form-label">料理名 <span class="text-danger">*</span></label>
+        <input type="text" class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+               id="name" name="name" value="{{ form.name.data or '' }}" required>
+        {% if form.name.errors %}
+        <div class="invalid-feedback">{{ form.name.errors[0] }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Genre -->
+      <div class="mb-3">
+        <label class="form-label">料理ジャンル（最大2つ）</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for genre in genres %}
+          <div class="genre-check">
+            <input class="form-check-input genre-checkbox" type="checkbox" name="genre_ids"
+                   value="{{ genre.id }}" id="genre{{ genre.id }}"
+                   {% if form.genre_ids.data and genre.id in form.genre_ids.data %}checked{% endif %}>
+            <label class="form-check-label" for="genre{{ genre.id }}">
+              <span class="tag-pill tag-pill-genre">{{ genre.name }}</span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        {% if form.genre_ids.errors %}
+        <div class="text-danger small mt-1">{{ form.genre_ids.errors[0] }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Difficulty (Star Rating) -->
+      <div class="mb-3">
+        <label class="form-label">工程（難易度）<span class="text-danger">*</span></label>
+        <div class="star-rating" id="starRating">
+          {% for i in range(1, 6) %}
+          <i class="bi bi-star{% if i <= (form.difficulty.data or 1) %}-fill active{% endif %} star" data-value="{{ i }}"></i>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="difficulty" id="difficultyInput" value="{{ form.difficulty.data or 1 }}">
+        {% if form.difficulty.errors %}
+        <div class="text-danger small mt-1">{{ form.difficulty.errors[0] }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Ingredients -->
+    <div class="form-section">
+      <div class="form-section-title">
+        原材料（最大10個）
+        <a href="{{ url_for('main.ingredient_new') }}?referrer={{ request.url }}" class="btn btn-sm btn-outline-secondary ms-2">
+          <i class="bi bi-plus"></i> 原材料を追加
+        </a>
+      </div>
+
+      <!-- Selected Ingredients -->
+      <div class="mb-3">
+        <label class="form-label">選択中の原材料</label>
+        <div class="selected-tags" id="selectedIngredients">
+          <span class="text-muted small" id="noSelectionText" {% if form.ingredient_ids.data %}style="display:none"{% endif %}>
+            原材料を選択してください
+          </span>
+        </div>
+        <input type="hidden" name="ingredient_ids" id="ingredientIdsInput" value="{{ form.ingredient_ids.data|default('') }}">
+      </div>
+
+      <!-- Category Accordion -->
+      <div class="accordion category-accordion" id="categoryAccordion">
+        {% for category in categories %}
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#category{{ category.id }}">
+              <i class="bi bi-tag me-2"></i> {{ category.name }}
+            </button>
+          </h2>
+          <div id="category{{ category.id }}" class="accordion-collapse collapse" data-bs-parent="#categoryAccordion">
+            <div class="accordion-body">
+              {% for ingredient in category.ingredients %}
+              <span class="tag-pill tag-pill-ingredient"
+                    data-id="{{ ingredient.id }}" data-name="{{ ingredient.name }}"
+                    onclick="toggleIngredient({{ ingredient.id }}, '{{ ingredient.name }}')">
+                {{ ingredient.name }}
+              </span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if form.ingredient_ids.errors %}
+      <div class="text-danger small mt-1">{{ form.ingredient_ids.errors[0] }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Memo -->
+    <div class="form-section">
+      <div class="form-section-title">メモ</div>
+      <div class="mb-3">
+        <textarea class="form-control {% if form.memo.errors %}is-invalid{% endif %}"
+                  id="memo" name="memo" rows="3" maxlength="500"
+                  placeholder="メモを入力（500文字以内）">{{ form.memo.data or '' }}</textarea>
+        {% if form.memo.errors %}
+        <div class="invalid-feedback">{{ form.memo.errors[0] }}</div>
+        {% endif %}
+        <div class="form-text text-end"><span id="memoCount">{{ (form.memo.data or '')|length }}</span>/500</div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="d-flex gap-2 mb-4">
+      <button type="submit" class="btn btn-add flex-grow-1">
+        <i class="bi bi-check-lg"></i> 保存
+      </button>
+      <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+        キャンセル
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Genre checkbox limit
+  const maxGenres = 2;
+  const genreCheckboxes = document.querySelectorAll('.genre-checkbox');
+
+  genreCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      const checked = document.querySelectorAll('.genre-checkbox:checked');
+      if (checked.length > maxGenres) {
+        this.checked = false;
+        alert('ジャンルは最大2つまで選択できます');
+      }
+    });
+  });
+
+  // Star rating
+  const stars = document.querySelectorAll('.star-rating .star');
+  const difficultyInput = document.getElementById('difficultyInput');
+
+  stars.forEach(star => {
+    star.addEventListener('click', function() {
+      const value = parseInt(this.dataset.value);
+      difficultyInput.value = value;
+      updateStars(value);
+    });
+
+    star.addEventListener('mouseenter', function() {
+      const value = parseInt(this.dataset.value);
+      highlightStars(value);
+    });
+
+    star.addEventListener('mouseleave', function() {
+      const currentValue = parseInt(difficultyInput.value);
+      updateStars(currentValue);
+    });
+  });
+
+  function updateStars(value) {
+    stars.forEach(star => {
+      const starValue = parseInt(star.dataset.value);
+      star.classList.remove('bi-star', 'bi-star-fill', 'active', 'hovered');
+      if (starValue <= value) {
+        star.classList.add('bi-star-fill', 'active');
+      } else {
+        star.classList.add('bi-star');
+      }
+    });
+  }
+
+  function highlightStars(value) {
+    stars.forEach(star => {
+      const starValue = parseInt(star.dataset.value);
+      star.classList.remove('bi-star', 'bi-star-fill', 'hovered');
+      if (starValue <= value) {
+        star.classList.add('bi-star-fill', 'hovered');
+      } else {
+        star.classList.add('bi-star');
+      }
+    });
+  }
+
+  // Ingredient selection
+  const maxIngredients = 10;
+  let selectedIngredients = new Map();
+
+  // Build ingredient lookup map
+  const ingredientLookup = new Map();
+  {% for category in categories %}
+    {% for ingredient in category.ingredients %}
+    ingredientLookup.set({{ ingredient.id }}, '{{ ingredient.name }}');
+    {% endfor %}
+  {% endfor %}
+
+  // Initialize from existing data (comma-separated string)
+  const existingIds = '{{ form.ingredient_ids.data|default("") }}';
+  if (existingIds) {
+    existingIds.split(',').forEach(idStr => {
+      const id = parseInt(idStr.trim());
+      if (id && ingredientLookup.has(id)) {
+        selectedIngredients.set(id, ingredientLookup.get(id));
+      }
+    });
+  }
+
+  // Initial render
+  updateSelectedIngredients();
+  updateIngredientPills();
+
+  function toggleIngredient(id, name) {
+    if (selectedIngredients.has(id)) {
+      selectedIngredients.delete(id);
+    } else {
+      if (selectedIngredients.size >= maxIngredients) {
+        alert(`原材料は最大${maxIngredients}個まで選択できます`);
+        return;
+      }
+      selectedIngredients.set(id, name);
+    }
+    updateSelectedIngredients();
+    updateIngredientPills();
+  }
+
+  function removeIngredient(id) {
+    selectedIngredients.delete(id);
+    updateSelectedIngredients();
+    updateIngredientPills();
+  }
+
+  function updateSelectedIngredients() {
+    const container = document.getElementById('selectedIngredients');
+    const noSelectionText = document.getElementById('noSelectionText');
+
+    container.querySelectorAll('.selected-tag').forEach(el => el.remove());
+
+    if (selectedIngredients.size === 0) {
+      noSelectionText.style.display = 'inline';
+    } else {
+      noSelectionText.style.display = 'none';
+      selectedIngredients.forEach((name, id) => {
+        const tag = document.createElement('span');
+        tag.className = 'selected-tag';
+        tag.dataset.id = id;
+        tag.innerHTML = `${name}<span class="remove-tag" onclick="removeIngredient(${id})"><i class="bi bi-x"></i></span>`;
+        container.insertBefore(tag, noSelectionText);
+      });
+    }
+
+    document.getElementById('ingredientIdsInput').value = Array.from(selectedIngredients.keys()).join(',');
+  }
+
+  function updateIngredientPills() {
+    document.querySelectorAll('.tag-pill-ingredient').forEach(pill => {
+      const id = parseInt(pill.dataset.id);
+      if (selectedIngredients.has(id)) {
+        pill.classList.add('selected');
+      } else {
+        pill.classList.remove('selected');
+      }
+    });
+  }
+
+  // Memo character count
+  const memoTextarea = document.getElementById('memo');
+  const memoCount = document.getElementById('memoCount');
+
+  memoTextarea.addEventListener('input', function() {
+    memoCount.textContent = this.value.length;
+  });
+</script>
+{% endblock %}

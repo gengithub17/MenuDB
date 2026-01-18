@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dish.name }} - 料理詳細{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <!-- Page Title -->
+  <div class="d-flex align-items-center mb-4">
+    <button type="button" class="btn btn-outline-secondary me-3" onclick="location.href='{{ referrer }}'">
+      <i class="bi bi-arrow-left"></i>
+    </button>
+    <h4 class="mb-0">料理詳細</h4>
+  </div>
+
+  <!-- Dish Detail -->
+  <div class="form-section">
+    <div class="form-section-title">基本情報</div>
+
+    <!-- Dish Name -->
+    <div class="mb-3">
+      <label class="form-label text-muted">料理名</label>
+      <div class="form-control-plaintext fs-5 fw-bold">{{ dish.name }}</div>
+    </div>
+
+    <!-- Genre -->
+    <div class="mb-3">
+      <label class="form-label text-muted">料理ジャンル</label>
+      <div>
+        {% for genre in dish.genres %}
+        <span class="badge bg-warning text-dark fs-6">{{ genre.name }}</span>
+        {% else %}
+        <span class="text-muted">未設定</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Difficulty -->
+    <div class="mb-3">
+      <label class="form-label text-muted">工程（難易度）</label>
+      <div class="dish-difficulty fs-5">
+        {% for i in range(5) %}
+          {% if i < dish.difficulty %}
+            <i class="bi bi-star-fill"></i>
+          {% else %}
+            <i class="bi bi-star"></i>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Ingredients -->
+  <div class="form-section">
+    <div class="form-section-title">原材料</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for ingredient in dish.ingredients %}
+      <span class="tag-pill tag-pill-ingredient">{{ ingredient.name }}</span>
+      {% else %}
+      <span class="text-muted">未設定</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Memo -->
+  <div class="form-section">
+    <div class="form-section-title">メモ</div>
+    <div class="form-control-plaintext">
+      {% if dish.memo %}
+      {{ dish.memo }}
+      {% else %}
+      <span class="text-muted">メモなし</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Edit Button -->
+  <div class="d-flex gap-2 mb-4">
+    <a href="{{ url_for('main.dish_edit', id=dish.id, referrer=url_for('main.dish_detail', id=dish.id, referrer=referrer)) }}" class="btn btn-add flex-grow-1">
+      <i class="bi bi-pencil"></i> 編集
+    </a>
+    <button type="button" class="btn btn-outline-secondary" onclick="location.href='{{ referrer }}'">
+      戻る
+    </button>
+  </div>
+</div>
+{% endblock %}

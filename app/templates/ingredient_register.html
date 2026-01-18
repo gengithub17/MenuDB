@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}原材料を追加{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <!-- Page Title -->
+  <div class="d-flex align-items-center mb-4">
+    <button type="button" class="btn btn-outline-secondary me-3" onclick="history.back()">
+      <i class="bi bi-arrow-left"></i>
+    </button>
+    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> 原材料を追加</h4>
+  </div>
+
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <input type="hidden" name="referrer" value="{{ request.referrer or '' }}">
+
+    <div class="form-section">
+      <div class="form-section-title">原材料情報</div>
+
+      <!-- Ingredient Name -->
+      <div class="mb-3">
+        <label for="name" class="form-label">原材料名 <span class="text-danger">*</span></label>
+        <input type="text" class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+               id="name" name="name" value="{{ form.name.data or '' }}" required
+               placeholder="例: トマト、鶏肉など">
+        {% if form.name.errors %}
+        <div class="invalid-feedback">{{ form.name.errors[0] }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Category -->
+      <div class="mb-3">
+        <label for="category_id" class="form-label">分類 <span class="text-danger">*</span></label>
+        <select class="form-select {% if form.category_id.errors %}is-invalid{% endif %}"
+                id="category_id" name="category_id" required>
+          <option value="">選択してください</option>
+          {% for category in categories %}
+          <option value="{{ category.id }}" {% if form.category_id.data == category.id %}selected{% endif %}>
+            {{ category.name }}
+          </option>
+          {% endfor %}
+        </select>
+        {% if form.category_id.errors %}
+        <div class="invalid-feedback">{{ form.category_id.errors[0] }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="d-flex gap-2 mb-4">
+      <button type="submit" class="btn btn-add flex-grow-1">
+        <i class="bi bi-check-lg"></i> 登録
+      </button>
+      <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+        キャンセル
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

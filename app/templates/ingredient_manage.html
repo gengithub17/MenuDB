@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}原材料整理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <!-- Page Title -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-tags"></i> 原材料整理</h4>
+    <a href="{{ url_for('main.ingredient_new') }}" class="btn btn-add">
+      <i class="bi bi-plus-lg"></i> 追加
+    </a>
+  </div>
+
+  <!-- Filter Section -->
+  <div class="form-section">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <label class="form-label mb-1">分類でフィルター</label>
+        <select class="form-select" id="categoryFilter" onchange="filterByCategory(this.value)">
+          <option value="">すべて表示</option>
+          {% for category in categories %}
+          <option value="{{ category.id }}" {% if selected_category_id == category.id %}selected{% endif %}>
+            {{ category.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ingredient List -->
+  <div class="mt-3" id="ingredientList">
+    {% for category in filtered_categories %}
+    <div class="mb-4" data-category="{{ category.id }}">
+      <h6 class="text-muted mb-2"><i class="bi bi-tag"></i> {{ category.name }}</h6>
+      {% for ingredient in category.ingredients %}
+      <div class="ingredient-item" data-id="{{ ingredient.id }}">
+        <span>{{ ingredient.name }}</span>
+        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal"
+                data-ingredient-id="{{ ingredient.id }}" data-ingredient-name="{{ ingredient.name }}">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+      {% else %}
+      <div class="text-muted small">原材料がありません</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+      <i class="bi bi-info-circle"></i> 原材料が登録されていません。
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Floating Add Button (Mobile) -->
+<button class="fab-add d-md-none" onclick="location.href='{{ url_for('main.ingredient_new') }}'">
+  <i class="bi bi-plus-lg"></i>
+</button>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">削除の確認</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-confirm-text">「<span id="deleteIngredientName"></span>」を削除しますか？</p>
+        <div id="usageWarning" style="display: none;">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            この原材料は <strong><span id="usageCount"></span>件</strong> の料理で使用されています。
+            <div id="usageDishes" class="small mt-1"></div>
+          </div>
+          <p class="text-muted small">削除すると、これらの料理からこの原材料が除外されます。</p>
+        </div>
+        <div id="noUsageWarning">
+          <p class="text-muted small">この原材料を使用している料理はありません。</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <form id="deleteForm" method="POST" style="display: inline;">
+          {{ delete_form.hidden_tag() }}
+          <button type="submit" class="btn btn-danger">削除する</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function filterByCategory(categoryId) {
+    const url = new URL(window.location);
+    if (categoryId) {
+      url.searchParams.set('category_id', categoryId);
+    } else {
+      url.searchParams.delete('category_id');
+    }
+    window.location.href = url.toString();
+  }
+
+  // Delete modal - check usage
+  const deleteModal = document.getElementById('deleteModal');
+  deleteModal.addEventListener('show.bs.modal', async function(event) {
+    const button = event.relatedTarget;
+    const ingredientId = button.getAttribute('data-ingredient-id');
+    const ingredientName = button.getAttribute('data-ingredient-name');
+
+    document.getElementById('deleteIngredientName').textContent = ingredientName;
+    document.getElementById('deleteForm').action = `/ingredient/${ingredientId}/delete`;
+
+    // Check usage
+    const usageWarning = document.getElementById('usageWarning');
+    const noUsageWarning = document.getElementById('noUsageWarning');
+    const usageCount = document.getElementById('usageCount');
+    const usageDishes = document.getElementById('usageDishes');
+
+    try {
+      const response = await fetch(`/ingredient/${ingredientId}/check-usage`);
+      const data = await response.json();
+
+      if (data.count > 0) {
+        usageWarning.style.display = 'block';
+        noUsageWarning.style.display = 'none';
+        usageCount.textContent = data.count;
+
+        let dishList = data.dishes.join('、');
+        if (data.has_more) {
+          dishList += '...';
+        }
+        usageDishes.textContent = dishList;
+      } else {
+        usageWarning.style.display = 'none';
+        noUsageWarning.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Error checking usage:', error);
+      usageWarning.style.display = 'none';
+      noUsageWarning.style.display = 'block';
+    }
+  });
+</script>
+{% endblock %}

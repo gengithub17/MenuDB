@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}サーバーエラー{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="text-center">
+    <h1 class="display-1 text-muted">500</h1>
+    <h2>サーバーエラー</h2>
+    <p class="text-muted">サーバーで問題が発生しました。しばらくしてから再度お試しください。</p>
+    <a href="{{ url_for('main.search') }}" class="btn btn-add mt-3">
+      <i class="bi bi-house"></i> トップに戻る
+    </a>
+  </div>
+</div>
+{% endblock %}

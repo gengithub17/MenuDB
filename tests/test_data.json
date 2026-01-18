@@ -1,0 +1,202 @@
+{
+  "ingredients": [
+    { "id": 1, "name": "豚肉", "category_id": 1, "display_order": 1 },
+    { "id": 2, "name": "牛肉", "category_id": 1, "display_order": 2 },
+    { "id": 3, "name": "鶏肉", "category_id": 1, "display_order": 3 },
+    { "id": 4, "name": "ひき肉", "category_id": 1, "display_order": 4 },
+    { "id": 5, "name": "ベーコン", "category_id": 1, "display_order": 5 },
+    { "id": 6, "name": "鮭", "category_id": 2, "display_order": 1 },
+    { "id": 7, "name": "エビ", "category_id": 2, "display_order": 2 },
+    { "id": 8, "name": "イカ", "category_id": 2, "display_order": 3 },
+    { "id": 9, "name": "あさり", "category_id": 2, "display_order": 4 },
+    { "id": 10, "name": "タラ", "category_id": 2, "display_order": 5 },
+    { "id": 11, "name": "玉ねぎ", "category_id": 3, "display_order": 1 },
+    { "id": 12, "name": "にんじん", "category_id": 3, "display_order": 2 },
+    { "id": 13, "name": "じゃがいも", "category_id": 3, "display_order": 3 },
+    { "id": 14, "name": "キャベツ", "category_id": 3, "display_order": 4 },
+    { "id": 15, "name": "トマト", "category_id": 3, "display_order": 5 },
+    { "id": 16, "name": "なす", "category_id": 3, "display_order": 6 },
+    { "id": 17, "name": "ピーマン", "category_id": 3, "display_order": 7 },
+    { "id": 18, "name": "ほうれん草", "category_id": 3, "display_order": 8 },
+    { "id": 19, "name": "もやし", "category_id": 3, "display_order": 9 },
+    { "id": 20, "name": "白菜", "category_id": 3, "display_order": 10 },
+    { "id": 21, "name": "大根", "category_id": 3, "display_order": 11 },
+    { "id": 22, "name": "ねぎ", "category_id": 3, "display_order": 12 },
+    { "id": 23, "name": "にんにく", "category_id": 3, "display_order": 13 },
+    { "id": 24, "name": "しょうが", "category_id": 3, "display_order": 14 },
+    { "id": 25, "name": "きのこ", "category_id": 3, "display_order": 15 },
+    { "id": 26, "name": "豆腐", "category_id": 4, "display_order": 1 },
+    { "id": 27, "name": "油揚げ", "category_id": 4, "display_order": 2 },
+    { "id": 28, "name": "こんにゃく", "category_id": 4, "display_order": 3 },
+    { "id": 29, "name": "ちくわ", "category_id": 4, "display_order": 4 },
+    { "id": 30, "name": "卵", "category_id": 4, "display_order": 5 },
+    { "id": 31, "name": "チーズ", "category_id": 4, "display_order": 6 },
+    { "id": 32, "name": "カレールー", "category_id": 5, "display_order": 1 },
+    { "id": 33, "name": "シチュールー", "category_id": 5, "display_order": 2 },
+    { "id": 34, "name": "パスタ麺", "category_id": 5, "display_order": 3 },
+    { "id": 35, "name": "うどん", "category_id": 5, "display_order": 4 },
+    { "id": 36, "name": "中華麺", "category_id": 5, "display_order": 5 }
+  ],
+  "dishes": [
+    {
+      "id": 1,
+      "name": "カレーライス",
+      "genre_ids": [2],
+      "ingredient_ids": [1, 11, 12, 13, 32],
+      "difficulty": 2,
+      "memo": "定番の家庭料理"
+    },
+    {
+      "id": 2,
+      "name": "肉じゃが",
+      "genre_ids": [1],
+      "ingredient_ids": [2, 11, 12, 13, 28],
+      "difficulty": 3,
+      "memo": "和風の煮物"
+    },
+    {
+      "id": 3,
+      "name": "生姜焼き",
+      "genre_ids": [1],
+      "ingredient_ids": [1, 11, 24],
+      "difficulty": 2,
+      "memo": "ご飯がすすむ"
+    },
+    {
+      "id": 4,
+      "name": "麻婆豆腐",
+      "genre_ids": [3],
+      "ingredient_ids": [4, 26, 22, 23, 24],
+      "difficulty": 3,
+      "memo": "辛さ調整可能"
+    },
+    {
+      "id": 5,
+      "name": "回鍋肉",
+      "genre_ids": [3],
+      "ingredient_ids": [1, 14, 17, 23],
+      "difficulty": 3,
+      "memo": "キャベツたっぷり"
+    },
+    {
+      "id": 6,
+      "name": "クリームシチュー",
+      "genre_ids": [2],
+      "ingredient_ids": [3, 11, 12, 13, 33],
+      "difficulty": 2,
+      "memo": "冬の定番"
+    },
+    {
+      "id": 7,
+      "name": "ペペロンチーノ",
+      "genre_ids": [4],
+      "ingredient_ids": [23, 5, 34],
+      "difficulty": 2,
+      "memo": "シンプルなパスタ"
+    },
+    {
+      "id": 8,
+      "name": "カルボナーラ",
+      "genre_ids": [4],
+      "ingredient_ids": [5, 30, 31, 34],
+      "difficulty": 3,
+      "memo": "クリーミーなパスタ"
+    },
+    {
+      "id": 9,
+      "name": "ミートソースパスタ",
+      "genre_ids": [4],
+      "ingredient_ids": [4, 11, 12, 15, 34],
+      "difficulty": 3,
+      "memo": "子供にも人気"
+    },
+    {
+      "id": 10,
+      "name": "焼きうどん",
+      "genre_ids": [1, 5],
+      "ingredient_ids": [1, 14, 11, 35],
+      "difficulty": 2,
+      "memo": "余り物で作れる"
+    },
+    {
+      "id": 11,
+      "name": "醤油ラーメン",
+      "genre_ids": [5],
+      "ingredient_ids": [1, 19, 22, 30, 36],
+      "difficulty": 2,
+      "memo": "インスタントでもOK"
+    },
+    {
+      "id": 12,
+      "name": "鮭のムニエル",
+      "genre_ids": [2, 6],
+      "ingredient_ids": [6, 18],
+      "difficulty": 2,
+      "memo": "バターで風味よく"
+    },
+    {
+      "id": 13,
+      "name": "エビチリ",
+      "genre_ids": [3, 6],
+      "ingredient_ids": [7, 22, 23, 24],
+      "difficulty": 4,
+      "memo": "プリプリのエビが美味しい"
+    },
+    {
+      "id": 14,
+      "name": "イカの煮物",
+      "genre_ids": [1, 6],
+      "ingredient_ids": [8, 21],
+      "difficulty": 3,
+      "memo": "大根と一緒に"
+    },
+    {
+      "id": 15,
+      "name": "あさりの味噌汁",
+      "genre_ids": [1, 7],
+      "ingredient_ids": [9, 22],
+      "difficulty": 1,
+      "memo": "出汁が美味しい"
+    },
+    {
+      "id": 16,
+      "name": "豚汁",
+      "genre_ids": [1, 7],
+      "ingredient_ids": [1, 11, 12, 21, 26, 28],
+      "difficulty": 2,
+      "memo": "具だくさん"
+    },
+    {
+      "id": 17,
+      "name": "ほうれん草のおひたし",
+      "genre_ids": [1, 8],
+      "ingredient_ids": [18],
+      "difficulty": 1,
+      "memo": "シンプルな副菜"
+    },
+    {
+      "id": 18,
+      "name": "なすの煮浸し",
+      "genre_ids": [1, 8],
+      "ingredient_ids": [16, 27],
+      "difficulty": 2,
+      "memo": "冷やしても美味しい"
+    },
+    {
+      "id": 19,
+      "name": "野菜炒め",
+      "genre_ids": [3],
+      "ingredient_ids": [1, 14, 17, 19, 12],
+      "difficulty": 1,
+      "memo": "冷蔵庫の整理に"
+    },
+    {
+      "id": 20,
+      "name": "親子丼",
+      "genre_ids": [1],
+      "ingredient_ids": [3, 11, 30],
+      "difficulty": 2,
+      "memo": "ふわとろ卵で"
+    }
+  ]
+}
