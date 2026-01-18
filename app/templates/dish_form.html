@@ -13,7 +13,7 @@
   </div>
 
   <form method="POST" novalidate>
-    {{ form.hidden_tag() }}
+    {{ form.csrf_token }}
     {{ form.referrer }}
 
     <!-- Basic Info -->
@@ -82,7 +82,7 @@
             原材料を選択してください
           </span>
         </div>
-        <input type="hidden" name="ingredient_ids" id="ingredientIdsInput" value="{{ form.ingredient_ids.data|default('') }}">
+        {{ form.ingredient_ids(id="ingredientIdsInput") }}
       </div>
 
       <!-- Category Accordion -->
