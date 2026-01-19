@@ -69,9 +69,9 @@
     <div class="form-section">
       <div class="form-section-title">
         原材料（最大10個）
-        <a href="{{ url_for('main.ingredient_new') }}?referrer={{ request.url }}" class="btn btn-sm btn-outline-secondary ms-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#ingredientModal">
           <i class="bi bi-plus"></i> 原材料を追加
-        </a>
+        </button>
       </div>
 
       <!-- Selected Ingredients -->
@@ -95,7 +95,7 @@
             </button>
           </h2>
           <div id="category{{ category.id }}" class="accordion-collapse collapse" data-bs-parent="#categoryAccordion">
-            <div class="accordion-body">
+            <div class="accordion-body" id="categoryBody{{ category.id }}">
               {% for ingredient in category.ingredients %}
               <span class="tag-pill tag-pill-ingredient"
                     data-id="{{ ingredient.id }}" data-name="{{ ingredient.name }}"
@@ -137,6 +137,41 @@
       </button>
     </div>
   </form>
+
+  <!-- Ingredient Modal -->
+  <div class="modal fade" id="ingredientModal" tabindex="-1" aria-labelledby="ingredientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="ingredientModalLabel">原材料を追加</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="modalIngredientName" class="form-label">原材料名 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="modalIngredientName" maxlength="100" required>
+            <div class="invalid-feedback" id="modalNameError"></div>
+          </div>
+          <div class="mb-3">
+            <label for="modalCategoryId" class="form-label">分類 <span class="text-danger">*</span></label>
+            <select class="form-select" id="modalCategoryId" required>
+              {% for category in categories %}
+              <option value="{{ category.id }}">{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="modalError" class="alert alert-danger d-none"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="button" class="btn btn-primary" id="modalSaveBtn">
+            <span class="spinner-border spinner-border-sm d-none" id="modalSpinner"></span>
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -210,7 +245,7 @@
   const ingredientLookup = new Map();
   {% for category in categories %}
     {% for ingredient in category.ingredients %}
-    ingredientLookup.set({{ ingredient.id }}, '{{ ingredient.name }}');
+    ingredientLookup.set({{ ingredient.id }}, {name: '{{ ingredient.name }}', categoryId: {{ category.id }}});
     {% endfor %}
   {% endfor %}
 
@@ -220,7 +255,7 @@
     existingIds.split(',').forEach(idStr => {
       const id = parseInt(idStr.trim());
       if (id && ingredientLookup.has(id)) {
-        selectedIngredients.set(id, ingredientLookup.get(id));
+        selectedIngredients.set(id, ingredientLookup.get(id).name);
       }
     });
   }
@@ -288,6 +323,108 @@
 
   memoTextarea.addEventListener('input', function() {
     memoCount.textContent = this.value.length;
+  });
+
+  // ===== Ingredient Modal =====
+  const ingredientModal = document.getElementById('ingredientModal');
+  const modalNameInput = document.getElementById('modalIngredientName');
+  const modalCategorySelect = document.getElementById('modalCategoryId');
+  const modalSaveBtn = document.getElementById('modalSaveBtn');
+  const modalSpinner = document.getElementById('modalSpinner');
+  const modalError = document.getElementById('modalError');
+  const modalNameError = document.getElementById('modalNameError');
+
+  // Reset modal on open
+  ingredientModal.addEventListener('show.bs.modal', function() {
+    modalNameInput.value = '';
+    modalNameInput.classList.remove('is-invalid');
+    modalNameError.textContent = '';
+    modalError.classList.add('d-none');
+    modalError.textContent = '';
+  });
+
+  // Focus on name input when modal is shown
+  ingredientModal.addEventListener('shown.bs.modal', function() {
+    modalNameInput.focus();
+  });
+
+  // Save button click
+  modalSaveBtn.addEventListener('click', async function() {
+    const name = modalNameInput.value.trim();
+    const categoryId = parseInt(modalCategorySelect.value);
+
+    // Validation
+    if (!name) {
+      modalNameInput.classList.add('is-invalid');
+      modalNameError.textContent = '原材料名は必須です';
+      return;
+    }
+    modalNameInput.classList.remove('is-invalid');
+
+    // Show spinner
+    modalSpinner.classList.remove('d-none');
+    modalSaveBtn.disabled = true;
+
+    try {
+      const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+      const response = await fetch('/api/ingredient', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          name: name,
+          category_id: categoryId
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Add new ingredient to the lookup and select it
+        const newIngredient = data.ingredient;
+        ingredientLookup.set(newIngredient.id, {name: newIngredient.name, categoryId: newIngredient.category_id});
+
+        // Add to selected ingredients
+        if (selectedIngredients.size < maxIngredients) {
+          selectedIngredients.set(newIngredient.id, newIngredient.name);
+          updateSelectedIngredients();
+        }
+
+        // Add pill to the category accordion
+        const categoryBody = document.getElementById('categoryBody' + newIngredient.category_id);
+        if (categoryBody) {
+          const pill = document.createElement('span');
+          pill.className = 'tag-pill tag-pill-ingredient selected';
+          pill.dataset.id = newIngredient.id;
+          pill.dataset.name = newIngredient.name;
+          pill.onclick = function() { toggleIngredient(newIngredient.id, newIngredient.name); };
+          pill.textContent = newIngredient.name;
+          categoryBody.appendChild(pill);
+        }
+
+        // Close modal
+        bootstrap.Modal.getInstance(ingredientModal).hide();
+      } else {
+        modalError.textContent = data.error || 'エラーが発生しました';
+        modalError.classList.remove('d-none');
+      }
+    } catch (error) {
+      modalError.textContent = '通信エラーが発生しました';
+      modalError.classList.remove('d-none');
+    } finally {
+      modalSpinner.classList.add('d-none');
+      modalSaveBtn.disabled = false;
+    }
+  });
+
+  // Allow Enter key to submit
+  modalNameInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      modalSaveBtn.click();
+    }
   });
 </script>
 {% endblock %}

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from sqlalchemy import func
-from app import db
+from app import db, csrf
 from app.models import Dish, Ingredient, IngredientCategory, DishGenre
 from app.forms import DishForm, IngredientForm, SearchForm, DeleteIngredientForm
 
@@ -363,3 +363,51 @@ def ingredient_search():
     ).order_by(Ingredient.name).limit(10).all()
 
     return jsonify([i.to_dict() for i in ingredients])
+
+
+@main_bp.route("/api/ingredient", methods=["POST"])
+def api_ingredient_create():
+    """Create ingredient via AJAX (for modal)"""
+    data = request.get_json(force=True, silent=True)
+    
+    if not data:
+        return jsonify({"success": False, "error": "No data provided"}), 400
+    
+    name = data.get("name", "").strip()
+    category_id = data.get("category_id")
+    
+    if not name:
+        return jsonify({"success": False, "error": "原材料名は必須です"}), 400
+    
+    if not category_id:
+        return jsonify({"success": False, "error": "分類は必須です"}), 400
+    
+    # Check for duplicate
+    existing = Ingredient.query.filter_by(name=name).first()
+    if existing:
+        return jsonify({"success": False, "error": "同じ名前の原材料が既に存在します"}), 400
+    
+    # Get max display_order for the category
+    max_order = db.session.query(func.max(Ingredient.display_order)).filter_by(
+        category_id=category_id
+    ).scalar() or 0
+    
+    ingredient = Ingredient(
+        name=name,
+        category_id=category_id,
+        display_order=max_order + 1
+    )
+    db.session.add(ingredient)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "ingredient": ingredient.to_dict()
+    })
+
+
+@main_bp.route("/api/categories")
+def api_categories():
+    """Get all ingredient categories (for modal)"""
+    categories = IngredientCategory.query.order_by(IngredientCategory.display_order).all()
+    return jsonify([{"id": c.id, "name": c.name} for c in categories])

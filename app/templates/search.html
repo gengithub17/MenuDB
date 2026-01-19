@@ -118,9 +118,20 @@
     {% if dishes.items %}
       {% for dish in dishes.items %}
       <div class="dish-card dish-card-clickable" onclick="location.href='{{ url_for('main.dish_detail', id=dish.id, referrer=request.url) }}'">
-        <div class="d-flex justify-content-between align-items-start">
-          <div class="dish-name">{{ dish.name }}</div>
-          <div class="dish-difficulty">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div class="flex-grow-1" style="min-width: 0;">
+            <div class="dish-name">{{ dish.name }}</div>
+            <div class="dish-genres">
+              {% for genre in dish.genres %}
+              <span class="badge bg-warning text-dark">{{ genre.name }}</span>
+              {% endfor %}
+            </div>
+            <div class="dish-ingredients">
+              <i class="bi bi-basket"></i>
+              {{ dish.ingredients|map(attribute='name')|join('、') }}
+            </div>
+          </div>
+          <div class="dish-difficulty flex-shrink-0">
             {% for i in range(5) %}
               {% if i < dish.difficulty %}
                 <i class="bi bi-star-fill"></i>
@@ -129,15 +140,6 @@
               {% endif %}
             {% endfor %}
           </div>
-        </div>
-        <div class="dish-genres">
-          {% for genre in dish.genres %}
-          <span class="badge bg-warning text-dark">{{ genre.name }}</span>
-          {% endfor %}
-        </div>
-        <div class="dish-ingredients">
-          <i class="bi bi-basket"></i>
-          {{ dish.ingredients|map(attribute='name')|join('、') }}
         </div>
       </div>
       {% endfor %}
