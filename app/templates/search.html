@@ -89,15 +89,21 @@
       </div>
 
       <!-- Pagination Settings -->
-      <div class="mb-3 d-flex align-items-center">
-        <label class="me-2">表示件数:</label>
+      <div class="mb-3 d-flex align-items-center flex-wrap gap-2">
+        <label class="me-2 mb-0">表示件数:</label>
         <select class="form-select form-select-sm" style="width: auto;" name="per_page" id="perPage">
           <option value="5" {% if dishes and dishes.per_page == 5 %}selected{% endif %}>5件</option>
           <option value="10" {% if not dishes or dishes.per_page == 10 %}selected{% endif %}>10件</option>
           <option value="20" {% if dishes and dishes.per_page == 20 %}selected{% endif %}>20件</option>
           <option value="50" {% if dishes and dishes.per_page == 50 %}selected{% endif %}>50件</option>
         </select>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="saveSearchDefaults()">
+          <i class="bi bi-star"></i> この設定をデフォルトにする
+        </button>
+        <span id="saveDefaultsMsg" class="text-success small" style="display:none;">保存しました</span>
       </div>
+
+      <input type="hidden" id="csrfToken" value="{{ csrf_token() }}">
 
       <!-- Hidden inputs for selected IDs -->
       <input type="hidden" name="ingredient_ids" id="ingredientIdsInput" value="{{ selected_ingredient_ids|default([])|join(',') }}">
@@ -297,6 +303,33 @@
       pill.classList.add('selected');
     }
     document.getElementById('genreIdsInput').value = Array.from(selectedGenres).join(',');
+  }
+
+  async function saveSearchDefaults() {
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const perPage = document.getElementById('perPage').value;
+    const csrfToken = document.getElementById('csrfToken').value;
+    const msg = document.getElementById('saveDefaultsMsg');
+
+    const response = await fetch('{{ url_for('main.save_search_defaults') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrfToken
+      },
+      body: `mode=${encodeURIComponent(mode)}&per_page=${encodeURIComponent(perPage)}`
+    });
+
+    if (response.ok) {
+      msg.textContent = '保存しました';
+      msg.className = 'text-success small';
+    } else {
+      const data = await response.json().catch(() => ({}));
+      msg.textContent = data.error || '保存に失敗しました';
+      msg.className = 'text-danger small';
+    }
+    msg.style.display = 'inline';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
   }
 
   function goToPage(page) {

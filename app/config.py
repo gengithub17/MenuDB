@@ -19,6 +19,12 @@ class Config:
     MAX_INGREDIENTS_PER_DISH = 10
     MAX_MEMO_LENGTH = 500
 
+    # Default search settings (used when no query params / no per-user setting)
+    DEFAULT_SEARCH_MODE = 'fuzzy'
+
+    # API key (Feature: /api/v1 access)
+    API_KEY_EXPIRY_HOURS = 1
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""

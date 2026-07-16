@@ -31,6 +31,12 @@ def create_app(config_name=None):
     from app.routes import main_bp
     app.register_blueprint(main_bp)
 
+    # /api/v1: authenticated with a per-user API key (see routes.account_api_key),
+    # not the oauth2-proxy session cookie, so it is exempt from CSRF/session checks.
+    from app.api import api_bp
+    csrf.exempt(api_bp)
+    app.register_blueprint(api_bp)
+
     # Register error handlers
     register_error_handlers(app)
 

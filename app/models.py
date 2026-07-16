@@ -104,3 +104,31 @@ class Dish(db.Model):
             'genres': [{'id': g.id, 'name': g.name} for g in self.genres],
             'ingredients': [{'id': i.id, 'name': i.name} for i in self.ingredients]
         }
+
+
+class ApiKey(db.Model):
+    """Short-lived API key issued to a logged-in user for /api/v1 access"""
+    __tablename__ = 'api_keys'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_email = db.Column(db.String(255), nullable=False, index=True)
+    key_hash = db.Column(db.String(64), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+    def __repr__(self):
+        return f'<ApiKey user={self.user_email} expires_at={self.expires_at}>'
+
+
+class UserSearchSetting(db.Model):
+    """Per-user default search settings (search mode / page size)"""
+    __tablename__ = 'user_search_settings'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_email = db.Column(db.String(255), nullable=False, unique=True)
+    search_mode = db.Column(db.String(10), nullable=False)
+    per_page = db.Column(db.Integer, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<UserSearchSetting user={self.user_email} mode={self.search_mode} per_page={self.per_page}>'

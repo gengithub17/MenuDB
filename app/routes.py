@@ -1,26 +1,21 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
-from sqlalchemy import func
-from app import db, csrf
-from app.models import Dish, Ingredient, IngredientCategory, DishGenre
-from app.forms import DishForm, IngredientForm, SearchForm, DeleteIngredientForm
+from app import db
+from app.models import Dish, Ingredient, IngredientCategory
+from app.forms import DishForm, IngredientForm, DeleteIngredientForm
+from app import services
+from app.services import ValidationError
 
 main_bp = Blueprint('main', __name__)
 
-
-def get_ingredients_by_category():
-    """Get all ingredients grouped by category"""
-    categories = IngredientCategory.query.order_by(IngredientCategory.display_order).all()
-    return categories
+parse_comma_separated_ids = services.parse_comma_separated_ids
 
 
-def get_all_genres():
-    """Get all genres"""
-    return DishGenre.query.all()
-
-
-def get_all_ingredients():
-    """Get all ingredients"""
-    return Ingredient.query.order_by(Ingredient.category_id, Ingredient.display_order).all()
+def current_user_email():
+    """Email of the logged-in user, as forwarded by oauth2-proxy via nginx.
+    Absent when the app is reached directly (e.g. LAN access on port 5000
+    bypassing nginx/oauth2-proxy).
+    """
+    return request.headers.get('X-Auth-Request-Email')
 
 
 # =============================================================================
@@ -29,20 +24,39 @@ def get_all_ingredients():
 
 @main_bp.route('/')
 def search():
-    """Search page (search mode)"""
-    categories = get_ingredients_by_category()
-    genres = get_all_genres()
+    """Search page - shows results immediately using default settings"""
+    categories = services.get_ingredients_by_category()
+    genres = services.get_all_genres()
+
+    user_setting = services.get_user_search_setting(current_user_email())
+    default_mode = user_setting.search_mode if user_setting else current_app.config['DEFAULT_SEARCH_MODE']
+    default_per_page = user_setting.per_page if user_setting else current_app.config['ITEMS_PER_PAGE']
+
+    ingredient_ids = parse_comma_separated_ids(request.args.get('ingredient_ids', ''))
+    genre_ids = parse_comma_separated_ids(request.args.get('genre_ids', ''))
+    mode = request.args.get('mode', default_mode)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', default_per_page, type=int)
+
+    dishes = services.build_dish_query(ingredient_ids, genre_ids, mode).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
     return render_template('search.html',
                            categories=categories,
                            genres=genres,
+                           dishes=dishes,
+                           selected_ingredient_ids=ingredient_ids,
+                           selected_genre_ids=genre_ids,
+                           search_mode=mode,
                            mode='search')
 
 
 @main_bp.route('/edit')
 def edit_mode():
     """Search page (edit mode)"""
-    categories = get_ingredients_by_category()
-    genres = get_all_genres()
+    categories = services.get_ingredients_by_category()
+    genres = services.get_all_genres()
 
     # Get all dishes with pagination
     page = request.args.get('page', 1, type=int)
@@ -62,45 +76,19 @@ def edit_mode():
 def search_dishes():
     """Search dishes and return results"""
     # Parse parameters
-    ingredient_ids_str = request.args.get('ingredient_ids', '')
-    genre_ids_str = request.args.get('genre_ids', '')
+    ingredient_ids = parse_comma_separated_ids(request.args.get('ingredient_ids', ''))
+    genre_ids = parse_comma_separated_ids(request.args.get('genre_ids', ''))
     mode = request.args.get('mode', 'fuzzy')
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', current_app.config['ITEMS_PER_PAGE'], type=int)
     view_mode = request.args.get('view_mode', 'search')  # search or edit
 
-    ingredient_ids = [int(x) for x in ingredient_ids_str.split(',') if x.strip().isdigit()]
-    genre_ids = [int(x) for x in genre_ids_str.split(',') if x.strip().isdigit()]
+    dishes = services.build_dish_query(ingredient_ids, genre_ids, mode).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
 
-    # Build query
-    query = Dish.query
-
-    # Filter by genres
-    if genre_ids:
-        query = query.filter(Dish.genres.any(DishGenre.id.in_(genre_ids)))
-
-    # Filter by ingredients
-    if ingredient_ids:
-        if mode == 'exact':
-            # Exact match: dish must have ALL specified ingredients
-            for ing_id in ingredient_ids:
-                query = query.filter(Dish.ingredients.any(Ingredient.id == ing_id))
-        else:
-            # Fuzzy match: dish must have ANY of specified ingredients
-            query = query.filter(Dish.ingredients.any(Ingredient.id.in_(ingredient_ids)))
-
-    # Order by relevance (number of matching ingredients) for fuzzy search
-    if mode == 'fuzzy' and ingredient_ids:
-        # Subquery to count matching ingredients
-        query = query.order_by(Dish.updated_at.desc())
-    else:
-        query = query.order_by(Dish.updated_at.desc())
-
-    # Paginate
-    dishes = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    categories = get_ingredients_by_category()
-    genres = get_all_genres()
+    categories = services.get_ingredients_by_category()
+    genres = services.get_all_genres()
 
     template = 'edit_mode.html' if view_mode == 'edit' else 'search.html'
 
@@ -115,6 +103,27 @@ def search_dishes():
 
 
 # =============================================================================
+# Search Default Settings
+# =============================================================================
+
+@main_bp.route('/settings/search-defaults', methods=['POST'])
+def save_search_defaults():
+    """Save the current user's default search mode / page size (AJAX)"""
+    user_email = current_user_email()
+    if not user_email:
+        return jsonify({'success': False, 'error': 'ログイン経由でのみ保存できます'}), 403
+
+    mode = request.form.get('mode')
+    per_page = request.form.get('per_page', type=int)
+
+    if mode not in ('fuzzy', 'exact') or not per_page:
+        return jsonify({'success': False, 'error': '不正な設定値です'}), 400
+
+    services.save_user_search_setting(user_email, mode, per_page)
+    return jsonify({'success': True})
+
+
+# =============================================================================
 # Dish Detail / Form Pages
 # =============================================================================
 
@@ -126,54 +135,33 @@ def dish_detail(id):
     return render_template('dish_detail.html', dish=dish, referrer=referrer)
 
 
-def parse_comma_separated_ids(value):
-    """Parse comma-separated string into list of integers"""
-    if not value:
-        return []
-    return [int(x) for x in value.split(',') if x.strip().isdigit()]
-
-
 @main_bp.route('/dish/new', methods=['GET', 'POST'])
 def dish_new():
     """Create new dish"""
     form = DishForm()
 
     # Set choices for genres
-    all_genres = get_all_genres()
+    all_genres = services.get_all_genres()
     form.genre_ids.choices = [(g.id, g.name) for g in all_genres]
 
     if request.method == 'POST':
         # Parse comma-separated ingredient_ids from hidden field
-        ingredient_ids_str = request.form.get('ingredient_ids', '')
-        ingredient_ids = parse_comma_separated_ids(ingredient_ids_str)
+        ingredient_ids = parse_comma_separated_ids(request.form.get('ingredient_ids', ''))
         form._ingredient_ids_list = ingredient_ids
 
         if form.validate_on_submit():
-            dish = Dish(
+            services.create_dish(
                 name=form.name.data,
                 difficulty=form.difficulty.data,
-                memo=form.memo.data
+                memo=form.memo.data,
+                genre_ids=form.genre_ids.data,
+                ingredient_ids=ingredient_ids
             )
-
-            # Add genres
-            for genre_id in form.genre_ids.data:
-                genre = DishGenre.query.get(genre_id)
-                if genre:
-                    dish.genres.append(genre)
-
-            # Add ingredients
-            for ingredient_id in ingredient_ids:
-                ingredient = Ingredient.query.get(ingredient_id)
-                if ingredient:
-                    dish.ingredients.append(ingredient)
-
-            db.session.add(dish)
-            db.session.commit()
 
             flash('料理を登録しました', 'success')
             return redirect(url_for('main.edit_mode'))
 
-    categories = get_ingredients_by_category()
+    categories = services.get_ingredients_by_category()
 
     return render_template('dish_form.html',
                            form=form,
@@ -190,7 +178,7 @@ def dish_edit(id):
     form = DishForm(obj=dish)
 
     # Set choices for genres
-    all_genres = get_all_genres()
+    all_genres = services.get_all_genres()
     form.genre_ids.choices = [(g.id, g.name) for g in all_genres]
 
     if request.method == 'GET':
@@ -200,30 +188,18 @@ def dish_edit(id):
         form.referrer.data = request.args.get('referrer', request.referrer or url_for('main.edit_mode'))
     else:
         # Parse comma-separated ingredient_ids from hidden field
-        ingredient_ids_str = request.form.get('ingredient_ids', '')
-        ingredient_ids = parse_comma_separated_ids(ingredient_ids_str)
+        ingredient_ids = parse_comma_separated_ids(request.form.get('ingredient_ids', ''))
         form._ingredient_ids_list = ingredient_ids
 
         if form.validate_on_submit():
-            dish.name = form.name.data
-            dish.difficulty = form.difficulty.data
-            dish.memo = form.memo.data
-
-            # Update genres
-            dish.genres.clear()
-            for genre_id in form.genre_ids.data:
-                genre = DishGenre.query.get(genre_id)
-                if genre:
-                    dish.genres.append(genre)
-
-            # Update ingredients
-            dish.ingredients.clear()
-            for ingredient_id in ingredient_ids:
-                ingredient = Ingredient.query.get(ingredient_id)
-                if ingredient:
-                    dish.ingredients.append(ingredient)
-
-            db.session.commit()
+            services.update_dish(
+                dish,
+                name=form.name.data,
+                difficulty=form.difficulty.data,
+                memo=form.memo.data,
+                genre_ids=form.genre_ids.data,
+                ingredient_ids=ingredient_ids
+            )
 
             flash('料理を更新しました', 'success')
 
@@ -233,8 +209,8 @@ def dish_edit(id):
                 return redirect(url_for('main.dish_detail', id=dish.id))
             return redirect(referrer or url_for('main.edit_mode'))
 
-    categories = get_ingredients_by_category()
-    genres = get_all_genres()
+    categories = services.get_ingredients_by_category()
+    genres = services.get_all_genres()
 
     return render_template('dish_form.html',
                            form=form,
@@ -248,8 +224,7 @@ def dish_edit(id):
 def dish_delete(id):
     """Delete a dish"""
     dish = Dish.query.get_or_404(id)
-    db.session.delete(dish)
-    db.session.commit()
+    services.delete_dish(dish)
 
     flash('料理を削除しました', 'success')
     return redirect(url_for('main.edit_mode'))
@@ -266,24 +241,8 @@ def ingredient_new():
     form.category_id.choices = [(c.id, c.name) for c in IngredientCategory.query.order_by(IngredientCategory.display_order).all()]
 
     if form.validate_on_submit():
-        # Check for duplicate name
-        existing = Ingredient.query.filter_by(name=form.name.data).first()
-        if existing:
-            flash('同じ名前の原材料が既に存在します', 'error')
-        else:
-            # Get max display_order for the category
-            max_order = db.session.query(func.max(Ingredient.display_order)).filter_by(
-                category_id=form.category_id.data
-            ).scalar() or 0
-
-            ingredient = Ingredient(
-                name=form.name.data,
-                category_id=form.category_id.data,
-                display_order=max_order + 1
-            )
-            db.session.add(ingredient)
-            db.session.commit()
-
+        try:
+            services.create_ingredient(form.name.data, form.category_id.data)
             flash('原材料を登録しました', 'success')
 
             # Return to referrer
@@ -291,6 +250,8 @@ def ingredient_new():
             if referrer:
                 return redirect(referrer)
             return redirect(url_for('main.ingredients'))
+        except ValidationError as e:
+            flash(e.message, 'error')
 
     categories = IngredientCategory.query.order_by(IngredientCategory.display_order).all()
     return render_template('ingredient_register.html',
@@ -302,7 +263,7 @@ def ingredient_new():
 def ingredients():
     """Ingredient management page"""
     category_id = request.args.get('category_id', type=int)
-    categories = get_ingredients_by_category()
+    categories = services.get_ingredients_by_category()
 
     if category_id:
         # Filter by category
@@ -323,31 +284,52 @@ def ingredients():
 def ingredient_check_usage(id):
     """Check how many dishes use this ingredient (AJAX)"""
     ingredient = Ingredient.query.get_or_404(id)
-    dish_count = ingredient.dishes.count()
-    dish_names = [d.name for d in ingredient.dishes.limit(5).all()]
-
-    return jsonify({
-        'count': dish_count,
-        'dishes': dish_names,
-        'has_more': dish_count > 5
-    })
+    return jsonify(services.get_ingredient_usage(ingredient))
 
 
 @main_bp.route('/ingredient/<int:id>/delete', methods=['POST'])
 def ingredient_delete(id):
     """Delete an ingredient"""
     ingredient = Ingredient.query.get_or_404(id)
-
-    # The CASCADE will handle removing the ingredient from dishes
-    db.session.delete(ingredient)
-    db.session.commit()
+    services.delete_ingredient(ingredient)
 
     flash(f'「{ingredient.name}」を削除しました', 'success')
     return redirect(url_for('main.ingredients'))
 
 
 # =============================================================================
-# API Endpoints (AJAX)
+# API Key Issuance (session-protected; the key itself is used against /api/v1)
+# =============================================================================
+
+@main_bp.route('/account/api-key', methods=['GET', 'POST'])
+def account_api_key():
+    """Issue/view a short-lived API key for the logged-in user"""
+    user_email = current_user_email()
+
+    if request.method == 'POST':
+        if not user_email:
+            flash('ログイン経由でのみAPIキーを発行できます', 'error')
+            return redirect(url_for('main.account_api_key'))
+
+        raw_key, api_key = services.issue_api_key(
+            user_email, current_app.config['API_KEY_EXPIRY_HOURS']
+        )
+        return render_template('api_key.html',
+                               user_email=user_email,
+                               raw_key=raw_key,
+                               active_key=api_key,
+                               expiry_hours=current_app.config['API_KEY_EXPIRY_HOURS'])
+
+    active_key = services.get_active_api_key(user_email) if user_email else None
+    return render_template('api_key.html',
+                           user_email=user_email,
+                           raw_key=None,
+                           active_key=active_key,
+                           expiry_hours=current_app.config['API_KEY_EXPIRY_HOURS'])
+
+
+# =============================================================================
+# API Endpoints (AJAX, used by the browser UI itself - unchanged)
 # =============================================================================
 
 @main_bp.route('/ingredient/search')
@@ -369,37 +351,24 @@ def ingredient_search():
 def api_ingredient_create():
     """Create ingredient via AJAX (for modal)"""
     data = request.get_json(force=True, silent=True)
-    
+
     if not data:
         return jsonify({"success": False, "error": "No data provided"}), 400
-    
+
     name = data.get("name", "").strip()
     category_id = data.get("category_id")
-    
+
     if not name:
         return jsonify({"success": False, "error": "原材料名は必須です"}), 400
-    
+
     if not category_id:
         return jsonify({"success": False, "error": "分類は必須です"}), 400
-    
-    # Check for duplicate
-    existing = Ingredient.query.filter_by(name=name).first()
-    if existing:
-        return jsonify({"success": False, "error": "同じ名前の原材料が既に存在します"}), 400
-    
-    # Get max display_order for the category
-    max_order = db.session.query(func.max(Ingredient.display_order)).filter_by(
-        category_id=category_id
-    ).scalar() or 0
-    
-    ingredient = Ingredient(
-        name=name,
-        category_id=category_id,
-        display_order=max_order + 1
-    )
-    db.session.add(ingredient)
-    db.session.commit()
-    
+
+    try:
+        ingredient = services.create_ingredient(name, category_id)
+    except ValidationError as e:
+        return jsonify({"success": False, "error": e.message}), 400
+
     return jsonify({
         "success": True,
         "ingredient": ingredient.to_dict()

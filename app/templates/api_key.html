@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}APIキー{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-key"></i> APIキー</h4>
+  </div>
+
+  {% if not user_email %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    ログインユーザーを識別できないため、APIキーを発行できません。
+    <code>menu.genserver.net</code> 経由（通常のログイン）でアクセスしてください。
+  </div>
+  {% else %}
+
+  <div class="form-section mb-4">
+    <div class="form-section-title">概要</div>
+    <p class="mb-1"><code>/api/v1/*</code> エンドポイントへのアクセスには、ここで発行するAPIキーが必要です。</p>
+    <p class="mb-1">リクエストヘッダー <code>X-API-Key: &lt;キー&gt;</code> を付けて呼び出してください。</p>
+    <p class="mb-0">有効期限は発行から<strong>{{ expiry_hours }}時間</strong>です。再発行すると古いキーは失効します。</p>
+  </div>
+
+  {% if raw_key %}
+  <div class="alert alert-success">
+    <i class="bi bi-check-circle"></i> 新しいAPIキーを発行しました。<strong>この画面を閉じると二度と表示されません。</strong>
+    <div class="mt-2">
+      <code style="user-select: all; word-break: break-all;">{{ raw_key }}</code>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-section mb-4">
+    <div class="form-section-title">現在のキー</div>
+    {% if active_key %}
+    <p class="mb-1">発行日時: {{ active_key.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    <p class="mb-0">有効期限: {{ active_key.expires_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    {% else %}
+    <p class="text-muted mb-0">有効なAPIキーはありません。</p>
+    {% endif %}
+  </div>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-add">
+      <i class="bi bi-arrow-repeat"></i> {% if active_key %}再発行する（旧キーは失効します）{% else %}発行する{% endif %}
+    </button>
+  </form>
+
+  {% endif %}
+</div>
+{% endblock %}
