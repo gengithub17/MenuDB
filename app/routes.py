@@ -18,6 +18,11 @@ def current_user_email():
     return request.headers.get('X-Auth-Request-Email')
 
 
+@main_bp.app_context_processor
+def inject_bookmark_count():
+    return {'bookmark_count': services.get_bookmark_count(current_user_email())}
+
+
 # =============================================================================
 # Search Pages
 # =============================================================================
@@ -49,6 +54,7 @@ def search():
                            selected_ingredient_ids=ingredient_ids,
                            selected_genre_ids=genre_ids,
                            search_mode=mode,
+                           bookmarked_dish_ids=services.get_bookmarked_dish_ids(current_user_email()),
                            mode='search')
 
 
@@ -99,6 +105,7 @@ def search_dishes():
                            selected_ingredient_ids=ingredient_ids,
                            selected_genre_ids=genre_ids,
                            search_mode=mode,
+                           bookmarked_dish_ids=services.get_bookmarked_dish_ids(current_user_email()),
                            mode=view_mode)
 
 
@@ -132,7 +139,8 @@ def dish_detail(id):
     """Dish detail page (read-only)"""
     dish = Dish.query.get_or_404(id)
     referrer = request.args.get('referrer', request.referrer or url_for('main.search'))
-    return render_template('dish_detail.html', dish=dish, referrer=referrer)
+    bookmarked = dish.id in services.get_bookmarked_dish_ids(current_user_email())
+    return render_template('dish_detail.html', dish=dish, referrer=referrer, bookmarked=bookmarked)
 
 
 @main_bp.route('/dish/new', methods=['GET', 'POST'])
@@ -150,13 +158,17 @@ def dish_new():
         form._ingredient_ids_list = ingredient_ids
 
         if form.validate_on_submit():
-            services.create_dish(
+            dish = services.create_dish(
                 name=form.name.data,
                 difficulty=form.difficulty.data,
                 memo=form.memo.data,
                 genre_ids=form.genre_ids.data,
                 ingredient_ids=ingredient_ids
             )
+
+            user_email = current_user_email()
+            if form.add_bookmark.data and user_email:
+                services.add_bookmark(user_email, dish.id, current_app.config['BOOKMARK_EXPIRY_DAYS'])
 
             flash('料理を登録しました', 'success')
             return redirect(url_for('main.edit_mode'))
@@ -185,6 +197,7 @@ def dish_edit(id):
         # Pre-populate form with existing data
         form.genre_ids.data = [g.id for g in dish.genres]
         form.ingredient_ids.data = ','.join(str(i.id) for i in dish.ingredients)
+        form.add_bookmark.data = dish.id in services.get_bookmarked_dish_ids(current_user_email())
         form.referrer.data = request.args.get('referrer', request.referrer or url_for('main.edit_mode'))
     else:
         # Parse comma-separated ingredient_ids from hidden field
@@ -200,6 +213,13 @@ def dish_edit(id):
                 genre_ids=form.genre_ids.data,
                 ingredient_ids=ingredient_ids
             )
+
+            user_email = current_user_email()
+            if user_email:
+                if form.add_bookmark.data:
+                    services.add_bookmark(user_email, dish.id, current_app.config['BOOKMARK_EXPIRY_DAYS'])
+                else:
+                    services.remove_bookmark(user_email, dish.id)
 
             flash('料理を更新しました', 'success')
 
@@ -295,6 +315,39 @@ def ingredient_delete(id):
 
     flash(f'「{ingredient.name}」を削除しました', 'success')
     return redirect(url_for('main.ingredients'))
+
+
+# =============================================================================
+# Bookmarks ("want to cook" list - manual or 1-week auto expiry)
+# =============================================================================
+
+@main_bp.route('/dish/<int:id>/bookmark', methods=['POST'])
+def dish_bookmark_toggle(id):
+    """Toggle bookmark for a dish (AJAX)"""
+    user_email = current_user_email()
+    if not user_email:
+        return jsonify({'success': False, 'error': 'ログイン経由でのみブックマークできます'}), 403
+
+    dish = Dish.query.get_or_404(id)
+    bookmarked = services.toggle_bookmark(user_email, dish.id, current_app.config['BOOKMARK_EXPIRY_DAYS'])
+    return jsonify({
+        'success': True,
+        'bookmarked': bookmarked,
+        'bookmark_count': services.get_bookmark_count(user_email)
+    })
+
+
+@main_bp.route('/bookmarks')
+def bookmarks_list():
+    """JSON list of the current user's active bookmarks, for the nav bell dropdown (AJAX)"""
+    user_email = current_user_email()
+    rows = services.get_active_bookmarks(user_email)
+    return jsonify([{
+        'dish_id': b.dish_id,
+        'dish_name': b.dish.name,
+        'created_at': b.created_at.strftime('%Y-%m-%d'),
+        'url': url_for('main.dish_detail', id=b.dish_id)
+    } for b in rows])
 
 
 # =============================================================================

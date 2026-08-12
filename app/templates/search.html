@@ -103,8 +103,6 @@
         <span id="saveDefaultsMsg" class="text-success small" style="display:none;">保存しました</span>
       </div>
 
-      <input type="hidden" id="csrfToken" value="{{ csrf_token() }}">
-
       <!-- Hidden inputs for selected IDs -->
       <input type="hidden" name="ingredient_ids" id="ingredientIdsInput" value="{{ selected_ingredient_ids|default([])|join(',') }}">
       <input type="hidden" name="genre_ids" id="genreIdsInput" value="{{ selected_genre_ids|default([])|join(',') }}">
@@ -137,14 +135,21 @@
               {{ dish.ingredients|map(attribute='name')|join('、') }}
             </div>
           </div>
-          <div class="dish-difficulty flex-shrink-0">
-            {% for i in range(5) %}
-              {% if i < dish.difficulty %}
-                <i class="bi bi-star-fill"></i>
-              {% else %}
-                <i class="bi bi-star"></i>
-              {% endif %}
-            {% endfor %}
+          <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0">
+            <button type="button"
+                    class="btn-bookmark {% if dish.id in bookmarked_dish_ids|default([]) %}bookmarked{% endif %}"
+                    onclick="event.stopPropagation(); toggleBookmark({{ dish.id }}, this)">
+              <i class="bi {% if dish.id in bookmarked_dish_ids|default([]) %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+            </button>
+            <div class="dish-difficulty">
+              {% for i in range(5) %}
+                {% if i < dish.difficulty %}
+                  <i class="bi bi-star-fill"></i>
+                {% else %}
+                  <i class="bi bi-star"></i>
+                {% endif %}
+              {% endfor %}
+            </div>
           </div>
         </div>
       </div>

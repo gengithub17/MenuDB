@@ -178,3 +178,40 @@ def list_genres():
 def list_categories():
     categories = IngredientCategory.query.order_by(IngredientCategory.display_order).all()
     return jsonify([{'id': c.id, 'name': c.name} for c in categories])
+
+
+# =============================================================================
+# Bookmarks ("want to cook" list, scoped to the authenticated API user)
+# =============================================================================
+
+def bookmark_to_dict(bookmark):
+    data = bookmark.dish.to_dict()
+    data['bookmarked_at'] = bookmark.created_at.isoformat()
+    data['expires_at'] = bookmark.expires_at.isoformat()
+    return data
+
+
+@api_bp.route('/bookmarks', methods=['GET'])
+def list_bookmarks():
+    rows = services.get_active_bookmarks(g.api_user)
+    return jsonify([bookmark_to_dict(b) for b in rows])
+
+
+@api_bp.route('/bookmarks', methods=['POST'])
+def create_bookmark():
+    data = request.get_json(force=True, silent=True) or {}
+    dish_id = data.get('dish_id')
+    dish = Dish.query.get_or_404(dish_id) if dish_id else None
+    if dish is None:
+        return jsonify({'error': 'dish_id は必須です'}), 400
+
+    bookmark = services.add_bookmark(g.api_user, dish.id, current_app.config['BOOKMARK_EXPIRY_DAYS'])
+    return jsonify(bookmark_to_dict(bookmark)), 201
+
+
+@api_bp.route('/bookmarks/<int:dish_id>', methods=['DELETE'])
+def delete_bookmark(dish_id):
+    removed = services.remove_bookmark(g.api_user, dish_id)
+    if not removed:
+        return jsonify({'error': 'bookmark not found'}), 404
+    return '', 204

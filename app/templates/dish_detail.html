@@ -9,7 +9,11 @@
     <button type="button" class="btn btn-outline-secondary me-3" onclick="location.href='{{ referrer }}'">
       <i class="bi bi-arrow-left"></i>
     </button>
-    <h4 class="mb-0">料理詳細</h4>
+    <h4 class="mb-0 flex-grow-1">料理詳細</h4>
+    <button type="button" class="btn-bookmark {% if bookmarked %}bookmarked{% endif %}"
+            onclick="toggleBookmark({{ dish.id }}, this)">
+      <i class="bi {% if bookmarked %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+    </button>
   </div>
 
   <!-- Dish Detail -->

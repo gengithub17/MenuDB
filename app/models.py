@@ -120,6 +120,26 @@ class ApiKey(db.Model):
         return f'<ApiKey user={self.user_email} expires_at={self.expires_at}>'
 
 
+class DishBookmark(db.Model):
+    """User's "want to cook" bookmark - manually removable, auto-expires after N days"""
+    __tablename__ = 'dish_bookmarks'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_email = db.Column(db.String(255), nullable=False, index=True)
+    dish_id = db.Column(db.Integer, db.ForeignKey('dishes.id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+    dish = db.relationship('Dish')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_email', 'dish_id', name='uq_dish_bookmark_user_dish'),
+    )
+
+    def __repr__(self):
+        return f'<DishBookmark user={self.user_email} dish_id={self.dish_id} expires_at={self.expires_at}>'
+
+
 class UserSearchSetting(db.Model):
     """Per-user default search settings (search mode / page size)"""
     __tablename__ = 'user_search_settings'

@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SelectField, SelectMultipleField, IntegerField, HiddenField
+from wtforms import StringField, TextAreaField, SelectField, SelectMultipleField, IntegerField, HiddenField, BooleanField
 from wtforms.validators import DataRequired, Length, NumberRange, ValidationError, Optional
 from wtforms.widgets import CheckboxInput, ListWidget
 from flask import current_app
@@ -32,6 +32,8 @@ class DishForm(FlaskForm):
         Optional(),
         Length(max=500, message='メモは500文字以内で入力してください')
     ])
+
+    add_bookmark = BooleanField('ブックマークに登録', default=False)
 
     referrer = HiddenField()
 
