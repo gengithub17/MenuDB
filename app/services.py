@@ -10,7 +10,7 @@ from sqlalchemy import func
 
 from app import db
 from app.models import (
-    ApiKey, Dish, DishGenre, Ingredient, IngredientCategory, UserSearchSetting
+    ApiKey, Dish, DishBookmark, DishGenre, Ingredient, IngredientCategory, UserSearchSetting
 )
 
 
@@ -186,6 +186,68 @@ def resolve_api_key(raw_key):
     if not api_key or api_key.expires_at < datetime.utcnow():
         return None
     return api_key
+
+
+# =============================================================================
+# Bookmarks ("want to cook" list)
+# =============================================================================
+
+def _purge_expired(user_email):
+    """Delete this user's already-expired rows. Caller is responsible for db.session.commit()."""
+    DishBookmark.query.filter(
+        DishBookmark.user_email == user_email,
+        DishBookmark.expires_at < datetime.utcnow()
+    ).delete(synchronize_session=False)
+
+
+def add_bookmark(user_email, dish_id, expiry_days):
+    """Create the bookmark, or refresh its expiry if it already exists."""
+    _purge_expired(user_email)
+    bookmark = DishBookmark.query.filter_by(user_email=user_email, dish_id=dish_id).first()
+    if bookmark is None:
+        bookmark = DishBookmark(user_email=user_email, dish_id=dish_id)
+        db.session.add(bookmark)
+    bookmark.expires_at = datetime.utcnow() + timedelta(days=expiry_days)
+    db.session.commit()
+    return bookmark
+
+
+def remove_bookmark(user_email, dish_id):
+    _purge_expired(user_email)
+    bookmark = DishBookmark.query.filter_by(user_email=user_email, dish_id=dish_id).first()
+    if bookmark is None:
+        db.session.commit()  # persist the purge even if there was nothing to remove
+        return False
+    db.session.delete(bookmark)
+    db.session.commit()
+    return True
+
+
+def toggle_bookmark(user_email, dish_id, expiry_days):
+    """Used by the single-button web UI toggle. Returns True if now bookmarked."""
+    if remove_bookmark(user_email, dish_id):
+        return False
+    add_bookmark(user_email, dish_id, expiry_days)
+    return True
+
+
+def get_active_bookmarks(user_email):
+    """Read-only, no purge: filters out expired rows without writing."""
+    if not user_email:
+        return []
+    return (DishBookmark.query
+            .filter(DishBookmark.user_email == user_email, DishBookmark.expires_at > datetime.utcnow())
+            .order_by(DishBookmark.created_at.desc())
+            .all())
+
+
+def get_bookmarked_dish_ids(user_email):
+    """For rendering the bookmark icon state on search / detail pages."""
+    return {b.dish_id for b in get_active_bookmarks(user_email)}
+
+
+def get_bookmark_count(user_email):
+    return len(get_active_bookmarks(user_email))
 
 
 # =============================================================================

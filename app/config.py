@@ -25,6 +25,9 @@ class Config:
     # API key (Feature: /api/v1 access)
     API_KEY_EXPIRY_HOURS = 1
 
+    # Bookmarks ("want to cook" list) auto-expire after this many days
+    BOOKMARK_EXPIRY_DAYS = 7
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""

@@ -63,6 +63,15 @@
         <div class="text-danger small mt-1">{{ form.difficulty.errors[0] }}</div>
         {% endif %}
       </div>
+
+      <!-- Bookmark -->
+      <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="addBookmark" name="add_bookmark"
+               {% if form.add_bookmark.data %}checked{% endif %}>
+        <label class="form-check-label" for="addBookmark">
+          <i class="bi bi-bookmark"></i> ブックマークに登録
+        </label>
+      </div>
     </div>
 
     <!-- Ingredients -->

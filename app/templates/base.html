@@ -32,6 +32,16 @@
               <i class="bi bi-pencil-square"></i> 編集
             </a>
           </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link" href="#" id="bookmarkBell" role="button" data-bs-toggle="dropdown"
+               aria-expanded="false" onclick="loadBookmarkDropdown()">
+              <i class="bi bi-bell"></i> ブックマーク
+              <span id="bookmarkBadge" class="badge bg-danger rounded-pill" {% if not bookmark_count %}style="display:none"{% endif %}>{{ bookmark_count }}</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end bookmark-dropdown" aria-labelledby="bookmarkBell" id="bookmarkDropdownMenu">
+              <li class="px-3 py-2 text-muted small">読み込み中...</li>
+            </ul>
+          </li>
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('main.ingredients') }}">
               <i class="bi bi-tags"></i> 原材料整理
@@ -64,7 +74,10 @@
   <!-- Main content -->
   {% block content %}{% endblock %}
 
+  <input type="hidden" id="csrfToken" value="{{ csrf_token() }}">
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/bookmark.js') }}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

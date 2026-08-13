@@ -90,6 +90,23 @@ curl -H "X-API-Key: $KEY" \
 | GET | `/api/v1/genres` | 料理ジャンル一覧 |
 | GET | `/api/v1/categories` | 原材料分類一覧 |
 
+### ブックマーク (bookmarks)
+
+「作りたい」と思った料理を一時的に覚えておくためのリストです。APIキーに紐づくユーザー単位で管理され、登録から **`BOOKMARK_EXPIRY_DAYS`（デフォルト7日）** 経過すると自動的に一覧から外れます（手動での解除も可能）。
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| GET | `/api/v1/bookmarks` | 有効なブックマーク一覧(期限切れは含まない) |
+| POST | `/api/v1/bookmarks` | ブックマーク登録(`{"dish_id": 1}`)。既に登録済みの場合は有効期限が延長される |
+| DELETE | `/api/v1/bookmarks/<dish_id>` | ブックマーク解除。未登録の場合は`404` |
+
+GET/POSTのレスポンスは料理の `to_dict()` に `bookmarked_at`(登録日時)と `expires_at`(自動解除予定日時)を加えたJSON配列/オブジェクトです。
+
+```bash
+curl -H "X-API-Key: $KEY" -X POST -H "Content-Type: application/json" \
+  -d '{"dish_id": 1}' https://menu.genserver.net/api/v1/bookmarks
+```
+
 ## 参考メモ: 認証プロキシ配下にAPIパスを追加したときにやったこと
 
 このアプリはoauth2-proxy + nginxでブラウザアクセスをSSO保護していますが、外部スクリプトは対話的なログインを完了できないため、`/api/v1` だけは別の認証（APIキー）に切り替える必要がありました。ここは私の環境（oauth2-proxy + nginx の `auth_request` 構成）でつまずいた点のメモです。他の認証プロキシやインフラ構成では事情が異なるはずなので、あくまで一例・参考情報として読んでください（この通りにすれば動くことを保証するものではありません）。
