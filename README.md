@@ -183,6 +183,16 @@ docker-compose --profile test up web-test
 
 テスト環境は http://localhost:5001 でアクセス可能です。
 
+### ログイン状態のローカル再現(開発環境限定)
+
+本番はoauth2-proxy + nginxがログインユーザーのメールアドレスを`X-Auth-Request-Email`ヘッダーで
+アプリに渡しますが、ローカルの`docker-compose`にはこのプロキシが無いため、素の状態ではブックマークの
+登録・検索デフォルト設定の保存・APIキー発行など、ログインユーザーに紐づく機能を確認できません。
+
+`web-test`サービスは`DEV_FAKE_USER_EMAIL`環境変数(既定値: `test@example.com`)を設定しており、
+ヘッダーが無い場合はこのメールアドレスでログイン済みとして動作します。この設定は`DevelopmentConfig`/
+`TestingConfig`にのみ存在し、`ProductionConfig`には定義されていないため、本番環境には一切影響しません。
+
 ### コンテナの停止
 
 ```bash

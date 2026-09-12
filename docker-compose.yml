@@ -28,6 +28,7 @@ services:
       - DATABASE_PATH=/app/data/test.db
       - SECRET_KEY=test-secret-key
       - TESTING=1
+      - DEV_FAKE_USER_EMAIL=${DEV_FAKE_USER_EMAIL:-test@example.com}
     profiles:
       - test
     command: >

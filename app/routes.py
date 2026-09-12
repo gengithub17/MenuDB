@@ -14,8 +14,13 @@ def current_user_email():
     """Email of the logged-in user, as forwarded by oauth2-proxy via nginx.
     Absent when the app is reached directly (e.g. LAN access on port 5000
     bypassing nginx/oauth2-proxy).
+
+    Falls back to DEV_FAKE_USER_EMAIL when the header is absent, so
+    login-scoped features can be exercised locally without oauth2-proxy.
+    That setting only exists in DevelopmentConfig/TestingConfig, so this
+    fallback is a no-op in production regardless of environment variables.
     """
-    return request.headers.get('X-Auth-Request-Email')
+    return request.headers.get('X-Auth-Request-Email') or current_app.config.get('DEV_FAKE_USER_EMAIL')
 
 
 @main_bp.app_context_processor
