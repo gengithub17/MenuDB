@@ -11,6 +11,12 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body>
+  {% if dev_auth_bypass_email %}
+    <div class="dev-auth-bypass-banner text-center py-1 small">
+      ⚠️ 開発用バイパス中: {{ dev_auth_bypass_email }} としてログイン扱いです(本番では表示されません)
+    </div>
+  {% endif %}
+
   <!-- Header -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">

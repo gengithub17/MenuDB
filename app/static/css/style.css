@@ -18,6 +18,14 @@ body {
   font-weight: 600;
 }
 
+/* Dev-only login bypass banner (see DEV_FAKE_USER_EMAIL) */
+.dev-auth-bypass-banner {
+  background-color: #fff3cd;
+  color: #664d03;
+  border-bottom: 1px solid #ffe69c;
+  font-weight: 600;
+}
+
 /* Mode Tabs */
 .mode-tabs {
   border-bottom: 2px solid var(--border-color);

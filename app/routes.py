@@ -28,6 +28,17 @@ def inject_bookmark_count():
     return {'bookmark_count': services.get_bookmark_count(current_user_email())}
 
 
+@main_bp.app_context_processor
+def inject_dev_auth_bypass():
+    """Expose whether this request is using the DEV_FAKE_USER_EMAIL fallback
+    (no X-Auth-Request-Email header), so templates can show a banner making
+    that obvious instead of it silently looking like a real login.
+    """
+    fake_email = current_app.config.get('DEV_FAKE_USER_EMAIL')
+    active = bool(fake_email) and not request.headers.get('X-Auth-Request-Email')
+    return {'dev_auth_bypass_email': fake_email if active else None}
+
+
 # =============================================================================
 # Search Pages
 # =============================================================================
