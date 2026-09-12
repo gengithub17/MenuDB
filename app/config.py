@@ -34,6 +34,12 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_ECHO = True
 
+    # Dev-only login bypass: current_user_email() falls back to this when
+    # X-Auth-Request-Email is absent (no oauth2-proxy in front of local Docker).
+    # Only defined here and in TestingConfig, never in Config/ProductionConfig,
+    # so production has no such setting to read regardless of env vars.
+    DEV_FAKE_USER_EMAIL = os.environ.get('DEV_FAKE_USER_EMAIL')
+
 
 class ProductionConfig(Config):
     """Production configuration"""
@@ -46,6 +52,7 @@ class TestingConfig(Config):
     DATABASE_PATH = os.environ.get('DATABASE_PATH', 'data/test.db')
     SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
     WTF_CSRF_ENABLED = False
+    DEV_FAKE_USER_EMAIL = os.environ.get('DEV_FAKE_USER_EMAIL')
 
 
 config = {

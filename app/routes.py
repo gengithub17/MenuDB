@@ -14,13 +14,29 @@ def current_user_email():
     """Email of the logged-in user, as forwarded by oauth2-proxy via nginx.
     Absent when the app is reached directly (e.g. LAN access on port 5000
     bypassing nginx/oauth2-proxy).
+
+    Falls back to DEV_FAKE_USER_EMAIL when the header is absent, so
+    login-scoped features can be exercised locally without oauth2-proxy.
+    That setting only exists in DevelopmentConfig/TestingConfig, so this
+    fallback is a no-op in production regardless of environment variables.
     """
-    return request.headers.get('X-Auth-Request-Email')
+    return request.headers.get('X-Auth-Request-Email') or current_app.config.get('DEV_FAKE_USER_EMAIL')
 
 
 @main_bp.app_context_processor
 def inject_bookmark_count():
     return {'bookmark_count': services.get_bookmark_count(current_user_email())}
+
+
+@main_bp.app_context_processor
+def inject_dev_auth_bypass():
+    """Expose whether this request is using the DEV_FAKE_USER_EMAIL fallback
+    (no X-Auth-Request-Email header), so templates can show a banner making
+    that obvious instead of it silently looking like a real login.
+    """
+    fake_email = current_app.config.get('DEV_FAKE_USER_EMAIL')
+    active = bool(fake_email) and not request.headers.get('X-Auth-Request-Email')
+    return {'dev_auth_bypass_email': fake_email if active else None}
 
 
 # =============================================================================
