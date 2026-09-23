@@ -11,6 +11,10 @@ services:
       - FLASK_DEBUG=${FLASK_DEBUG:-0}
       - DATABASE_PATH=/app/data/menudb.db
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_AUTH_ENABLED=${JWT_AUTH_ENABLED:-false}
+      - JWT_ISSUER=${JWT_ISSUER:-}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-}
+      - JWT_JWKS_URL=${JWT_JWKS_URL:-}
     restart: unless-stopped
 
   # Test environment

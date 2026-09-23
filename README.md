@@ -156,6 +156,30 @@ MenuDB/
 | FLASK_DEBUG | 0 | デバッグモード (0/1) |
 | DATABASE_PATH | /app/data/menudb.db | データベースファイルのパス |
 | SECRET_KEY | (自動生成) | Flask秘密鍵 |
+| JWT_AUTH_ENABLED | false | 有効にすると、`X-Auth-Request-Email`ヘッダーへの信頼をやめ、`Authorization: Bearer <IDトークン>`をKeycloakの公開鍵で署名検証してログインユーザーを判定する(後述) |
+| JWT_ISSUER | (未設定) | 検証時に一致を要求するissuer。例: `https://auth.genserver.net/realms/main` |
+| JWT_AUDIENCE | (未設定) | 検証時に一致を要求するaudience(KeycloakクライアントID)。例: `MenuDB` |
+| JWT_JWKS_URL | (未設定) | 署名検証用の公開鍵(JWKS)取得先。例: `https://auth.genserver.net/realms/main/protocol/openid-connect/certs` |
+
+### JWT検証によるログインユーザー判定(オプション機能)
+
+`X-Auth-Request-Email`ヘッダーは、手前のリバースプロキシ(oauth2-proxy)が付与した値をアプリ側で
+一切検証せずに信用する設計になっている。ネットワーク経路がoauth2-proxy以外から遮断されている限りは
+安全だが、その前提が崩れると任意のユーザーへのなりすましが可能になってしまう(詳細な経緯は
+運用側のセキュリティ調査メモを参照)。
+
+`JWT_AUTH_ENABLED=true`にすると、この判定を`X-Auth-Request-Email`ヘッダーではなく、
+リクエストに付与された`Authorization: Bearer <IDトークン>`をKeycloakの公開鍵(JWKS)で
+署名検証した結果に切り替える。ネットワーク経路に依存せず、署名を偽造できない限りなりすませない。
+
+- 有効化には、oauth2-proxy側で`pass_authorization_header = true`を設定し、IDトークンを
+  アプリまで転送する必要がある(oauth2-proxy.cfgへの1行追加のみ。Keycloak側の設定変更は不要)
+- `JWT_AUTH_ENABLED`が`true`の間は`X-Auth-Request-Email`ヘッダーへのフォールバックは行わない
+  (トークンが無い・検証に失敗した場合は常に未ログイン扱い)
+- `JWT_ISSUER`・`JWT_AUDIENCE`・`JWT_JWKS_URL`のいずれかが未設定の場合も、エラーログを出した上で
+  常に未ログイン扱いになる(fail closed)
+- 既定は`false`(無効)。oauth2-proxy側の設定変更と足並みを揃えて有効化することを想定した
+  オプトイン機能
 
 ### アプリケーション設定
 

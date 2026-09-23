@@ -28,6 +28,15 @@ class Config:
     # Bookmarks ("want to cook" list) auto-expire after this many days
     BOOKMARK_EXPIRY_DAYS = 7
 
+    # JWT verification (optional, opt-in defense-in-depth on top of the
+    # X-Auth-Request-Email header oauth2-proxy sets). Disabled unless every
+    # setting below is explicitly provided; see app/auth.py.
+    JWT_AUTH_ENABLED = os.environ.get('JWT_AUTH_ENABLED', 'false').lower() == 'true'
+    JWT_ISSUER = os.environ.get('JWT_ISSUER')
+    JWT_AUDIENCE = os.environ.get('JWT_AUDIENCE')
+    JWT_JWKS_URL = os.environ.get('JWT_JWKS_URL')
+    JWT_LEEWAY_SECONDS = 30
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
