@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
-from app import db
+from app import auth, db
 from app.models import Dish, Ingredient, IngredientCategory
 from app.forms import DishForm, IngredientForm, DeleteIngredientForm
 from app import services
@@ -11,15 +11,25 @@ parse_comma_separated_ids = services.parse_comma_separated_ids
 
 
 def current_user_email():
-    """Email of the logged-in user, as forwarded by oauth2-proxy via nginx.
-    Absent when the app is reached directly (e.g. LAN access on port 5000
-    bypassing nginx/oauth2-proxy).
+    """Email of the logged-in user.
 
-    Falls back to DEV_FAKE_USER_EMAIL when the header is absent, so
-    login-scoped features can be exercised locally without oauth2-proxy.
-    That setting only exists in DevelopmentConfig/TestingConfig, so this
-    fallback is a no-op in production regardless of environment variables.
+    Normally this is just the X-Auth-Request-Email header oauth2-proxy sets
+    after checking the session - trusted with no verification of its own,
+    which only holds up if nothing but oauth2-proxy can ever reach this app.
+
+    When JWT_AUTH_ENABLED is set, that header is bypassed entirely in favor
+    of verifying the request's bearer token against Keycloak's public keys
+    (see app/auth.py) - identity that can't be forged by setting a header,
+    regardless of network topology. Verification failure means logged out;
+    there is deliberately no fallback to the unverified header in that mode.
+
+    Falls back to DEV_FAKE_USER_EMAIL when neither applies, so login-scoped
+    features can be exercised locally without oauth2-proxy. That setting only
+    exists in DevelopmentConfig/TestingConfig, so it's a no-op in production
+    regardless of environment variables.
     """
+    if current_app.config.get('JWT_AUTH_ENABLED'):
+        return auth.verify_jwt_email()
     return request.headers.get('X-Auth-Request-Email') or current_app.config.get('DEV_FAKE_USER_EMAIL')
 
 
